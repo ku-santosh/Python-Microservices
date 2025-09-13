@@ -36,3 +36,51 @@ Run migrations or create tables manually. Example SQL is included in `migrations
 - Each service performs a simple TCP health check to the db_service gRPC port at startup and prints connection status lines like:
   - "Successfully connected to the database."
   - "Error connecting to the database: <error>"
+
+
+## Project Structure
+
+#python-microservices-full/
+
+- ├─ README.md
+- ├─ docker-compose.yml 
+- ├─ .env.dev
+- ├─ .env.uat
+- ├─ .env.prod
+- ├─ migrations/
+- │  └─ schema.sql
+- ├─ proto/
+- │  ├─ db_service.proto
+- │  ├─ db_service_pb2.py         # placeholder
+- │  └─ db_service_pb2_grpc.py    # placeholder
+- ├─ services/
+- │  ├─ common/
+- │  │  └─ db_client.py
+- │  ├─ db_service/
+- │  │  ├─ server.py
+- │  │  └─ requirements.txt
+- │  │  └─ Dockerfile
+- │  ├─ auth/
+- │  │  ├─ app.py
+- │  │  ├─ utils.py
+- │  │  ├─ requirements.txt
+- │  │  └─ Dockerfile
+- │  ├─ products/
+- │  │  ├─ app.py
+- │  │  ├─ requirements.txt
+- │  │  └─ Dockerfile
+- │  ├─ orders/
+- │  │  ├─ app.py
+- │  │  ├─ requirements.txt
+- │  │  └─ Dockerfile
+- │  └─ token_service/
+- │     ├─ app.py
+- │     ├─ requirements.txt
+- │     └─ Dockerfile
+- ├─ gateway/
+- │  └─ traefik_dynamic.yml
+- ├─ k8s/
+- │  └─ microservices-all.yaml
+- └─ .github/
+- │  └─ workflows/
+- │     └─ ci.yml
