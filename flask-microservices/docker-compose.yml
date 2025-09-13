@@ -1,16 +1,61 @@
 version: "3.8"
-
 services:
   postgres:
     image: postgres:14
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     ports:
       - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  db_service:
+    build: ./services/db_service
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "50051:50051"
+      - "50052:50052" # http health
+    depends_on:
+      - postgres
+
+  auth:
+    build: ./services/auth
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5001:5001"
+    depends_on:
+      - db_service
+
+  products:
+    build: ./services/products
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5002:5002"
+    depends_on:
+      - db_service
+
+  orders:
+    build: ./services/orders
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5003:5003"
+    depends_on:
+      - db_service
+
+  token_service:
+    build: ./services/token_service
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5004:5004"
+    depends_on:
+      - db_service
 
   traefik:
     image: traefik:v2.10
@@ -24,41 +69,6 @@ services:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-
-  auth:
-    build: ./services/auth
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.auth.rule=PathPrefix(`/auth`)"        ports:
-      - "5001:5000"
-    env_file:
-      - .env.${STAGE}
-    environment:
-      - STAGE=${STAGE}
-      - DATABASE_URL=${DATABASE_URL}
-
-  products:
-    build: ./services/products
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.products.rule=PathPrefix(`/products`)"        ports:
-      - "5002:5000"
-    env_file:
-      - .env.${STAGE}
-    environment:
-      - STAGE=${STAGE}
-
-  orders:
-    build: ./services/orders
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.orders.rule=PathPrefix(`/orders`)"        ports:
-      - "5003:5000"
-    env_file:
-      - .env.${STAGE}
-    environment:
-      - STAGE=${STAGE}
-      - DATABASE_URL=${DATABASE_URL}
 
 volumes:
   pgdata:

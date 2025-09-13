@@ -1,87 +1,55 @@
-from flask import Flask, request, jsonify, make_response
-import jwt, json, os
+from flask import Flask, request, jsonify
+import os
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
-from config import Config
-from sqlalchemy import create_engine, Column, Integer, String, Table, MetaData
-from sqlalchemy.exc import IntegrityError
-import bcrypt
+import jwt
+from services.common.db_client import get_stub
+import proto.db_service_pb2 as pb2
+
+from utils import hash_password, check_password
+
+stage = os.environ.get('STAGE', 'dev')
+load_dotenv(dotenv_path=f'.env.{stage}', override=True)
+SECRET_KEY = os.environ.get('JWT_SECRET', 'devsecret')
 
 app = Flask(__name__)
-app.config.from_object(Config)
 
-# Setup DB
-engine = create_engine(app.config.DATABASE_URL, echo=False, future=True)
-metadata = MetaData()
-
-users_table = Table('users', metadata,
-    Column('id', Integer, primary_key=True, autoincrement=True),
-    Column('username', String(150), unique=True, nullable=False),
-    Column('password_hash', String(200), nullable=False)
-)
-
-metadata.create_all(engine)
-
-# Helper functions
-def hash_password(plain_text_password: str) -> bytes:
-    return bcrypt.hashpw(plain_text_password.encode('utf-8'), bcrypt.gensalt())
-
-def check_password(plain_text_password: str, hashed: bytes) -> bool:
-    return bcrypt.checkpw(plain_text_password.encode('utf-8'), hashed)
-
-@app.route('/auth/register', methods=['POST'])
+@app.route('/register', methods=['POST'])
 def register():
     if not request.is_json:
-        return jsonify({'error': 'Unsupported Media Type'}), 415
-    username = request.json.get('username')
-    password = request.json.get('password')
+        return jsonify({'error': 'JSON required'}), 415
+    data = request.get_json()
+    username = data.get('username'); password = data.get('password')
     if not username or not password:
-        return jsonify({'error': 'username and password are required'}), 400
-    hashed = hash_password(password)
-    ins = users_table.insert().values(username=username, password_hash=hashed.decode('utf-8'))
-    try:
-        with engine.begin() as conn:
-            result = conn.execute(ins)
-            user_id = result.inserted_primary_key[0]
-    except IntegrityError:
-        return jsonify({'error': 'username already exists'}), 409
-    return jsonify({'id': user_id, 'username': username}), 201
+        return jsonify({'error': 'username and password required'}), 400
+    stub = get_stub()
+    pw_hash = hash_password(password)
+    req = pb2.CreateUserRequest(username=username, password_hash=pw_hash)
+    res = stub.CreateUser(req)
+    if res.error:
+        return jsonify({'error': res.error}), 500
+    return jsonify({'message': 'User registered successfully', 'id': res.id}), 201
 
-@app.route('/auth', methods=['POST'])
-def authenticate_user():
+@app.route('/login', methods=['POST'])
+def login():
     if not request.is_json:
-        return jsonify({'error': 'Unsupported Media Type'}), 415
-    username = request.json.get('username')
-    password = request.json.get('password')
-    with engine.begin() as conn:
-        sel = users_table.select().where(users_table.c.username==username)
-        row = conn.execute(sel).fetchone()
-        if row and check_password(password, row['password_hash'].encode('utf-8')):
-            payload = {
-                'user_id': row['id'],
-                'exp': datetime.utcnow() + timedelta(hours=2)
-            }
-            token = jwt.encode(payload, app.config['SECRET_KEY'], algorithm='HS256')
-            resp = make_response(jsonify({'message': 'Authentication successful'}))
-            resp.set_cookie('token', token, httponly=True, samesite='Lax')
-            return resp
-    return jsonify({'error': 'Invalid username or password'}), 401
-
-@app.route('/introspect', methods=['POST'])
-def introspect():
-    token = request.json.get('token')
-    try:
-        data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-        return jsonify({'active': True, 'user_id': data.get('user_id')}), 200
-    except Exception:
-        return jsonify({'active': False}), 401
+        return jsonify({'error': 'JSON required'}), 415
+    data = request.get_json()
+    username = data.get('username'); password = data.get('password')
+    if not username or not password:
+        return jsonify({'error': 'username and password required'}), 400
+    stub = get_stub()
+    req = pb2.GetUserRequest(username=username)
+    res = stub.GetUserByUsername(req)
+    if res.error:
+        return jsonify({'error': 'Invalid username or password'}), 401
+    if not check_password(password, res.password_hash):
+        return jsonify({'error': 'Invalid username or password'}), 401
+    token = jwt.encode({'user_id': res.id, 'exp': datetime.utcnow()+timedelta(hours=2)}, SECRET_KEY, algorithm='HS256')
+    return jsonify({'access_token': token}), 200
 
 if __name__ == '__main__':
-    # create an admin user if none exists (dev convenience)
-    with engine.begin() as conn:
-        sel = users_table.select().limit(1)
-        row = conn.execute(sel).fetchone()
-        if not row:
-            pw = os.environ.get('ADMIN_PASSWORD', 'admin')
-            hashed = hash_password(pw)
-            conn.execute(users_table.insert().values(username='admin', password_hash=hashed.decode('utf-8')))
-    app.run(host='0.0.0.0', port=Config.PORT)
+    # health check to print DB connection status
+    from services.common.db_client import wait_for_db_service
+    wait_for_db_service(timeout=10)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT',5001)))
