@@ -1,0 +1,1 @@
+# Traefik config: using docker provider. Dashboard available on port 8080

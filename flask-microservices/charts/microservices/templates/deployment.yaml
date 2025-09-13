@@ -1,0 +1,21 @@
+{{- if .Values }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "microservices.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "microservices.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "microservices.name" . }}
+    spec:
+      containers:
+        - name: {{ include "microservices.name" . }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          ports:
+            - containerPort: 80
+{{- end }}

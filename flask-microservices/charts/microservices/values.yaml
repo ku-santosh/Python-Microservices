@@ -1,0 +1,18 @@
+replicaCount: 1
+
+image:
+  repository: your-registry/microservices
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  annotations: {}
+  hosts:
+    - host: chart-example.local
+      paths:
+        - /
