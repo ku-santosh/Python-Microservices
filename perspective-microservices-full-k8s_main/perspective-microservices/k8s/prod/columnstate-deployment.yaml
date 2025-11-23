@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: columnstate-service
+  namespace: prod
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: columnstate-service
+  template:
+    metadata:
+      labels:
+        app: columnstate-service
+    spec:
+      containers:
+      - name: columnstate-service
+        image: <ACR_NAME>.azurecr.io/columnstate-service:prod
+        env:
+        - name: DB_PROXY_HOST
+          value: db-proxy
+        - name: DB_PROXY_PORT
+          value: "5000"
+        ports:
+        - containerPort: 5002
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: columnstate-service
+  namespace: prod
+spec:
+  selector:
+    app: columnstate-service
+  ports:
+  - port: 5002
+    targetPort: 5002
+    protocol: TCP

@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-proxy-config
+  namespace: prod
+data:
+  DB_NAME: skg023
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_SCHEMA: recsui
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-proxy-secret
+  namespace: prod
+type: Opaque
+stringData:
+  DB_USER: your_db_user
+  DB_PASSWORD: your_db_password
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-proxy
+  namespace: prod
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: db-proxy
+  template:
+    metadata:
+      labels:
+        app: db-proxy
+    spec:
+      containers:
+      - name: db-proxy
+        image: <ACR_NAME>.azurecr.io/db-proxy:prod
+        ports:
+        - containerPort: 5000
+        envFrom:
+        - configMapRef:
+            name: db-proxy-config
+        - secretRef:
+            name: db-proxy-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-proxy
+  namespace: prod
+spec:
+  selector:
+    app: db-proxy
+  ports:
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP

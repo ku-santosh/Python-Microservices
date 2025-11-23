@@ -1,0 +1,61 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=skg023
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  db_service:
+    build: ./services/db_service
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "50051:50051"
+      - "50052:50052"
+    depends_on:
+      - postgres
+
+  auth:
+    build: ./services/auth
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5001:5001"
+    depends_on:
+      - db_service
+
+  products:
+    build: ./services/products
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5002:5002"
+    depends_on:
+      - db_service
+
+  orders:
+    build: ./services/orders
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5003:5003"
+    depends_on:
+      - db_service
+
+  token_service:
+    build: ./services/token_service
+    env_file:
+      - .env.${STAGE}
+    ports:
+      - "5004:5004"
+    depends_on:
+      - db_service
+
+volumes:
+  pgdata:

@@ -1,0 +1,25 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Build & push images (placeholder)
+        run: |
+          echo "Build & push your images to ACR here (use azure/login action and az acr build/push)."
+
+      - name: Deploy to AKS
+        run: |
+          echo "kubectl apply -f k8s/\${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"

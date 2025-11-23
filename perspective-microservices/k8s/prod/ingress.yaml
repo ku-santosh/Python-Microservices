@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+  namespace: dev
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  rules:
+  - host: api.dev.myapp.com
+    http:
+      paths:
+      - path: /perspectives/?(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: perspective-service
+            port:
+              number: 5001
+      - path: /columnstate/?(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: columnstate-service
+            port:
+              number: 5002
+      - path: /filtermodel/?(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: filtermodel-service
+            port:
+              number: 5003
